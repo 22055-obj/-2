@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ごみ分別AI：カメラ＆写真</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        #display-area { margin-top: 20px; width: 100%; min-height: 300px; background: #eee; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        canvas, img { max-width: 100%; height: auto; }
+        .controls { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        button, label { padding: 12px; font-size: 1rem; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 10px; transition: 0.3s; }
+        button:hover, label:hover { background: #0056b3; }
+        #file-input { display: none; } /* 本来のファイル選択ボタンは隠す */
+        #result-card { margin-top: 20px; padding: 15px; border-radius: 10px; border-left: 8px solid #ccc; background: #fafafa; }
+        .label-text { font-size: 1.4rem; font-weight: bold; }
+        .prob-text { font-size: 0.9rem; color: #888; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ごみ分別AIカメラ</h1>
+    
+    <div id="display-area">
+        <p id="placeholder">カメラを起動するか<br>画像を選択してください</p>
+    </div>
+
+    <div class="controls">
+        <button type="button" onclick="initCamera()">📸 カメラを起動</button>
+        <label for="file-input">📁 画像を選択（スマホ内から）</label>
+        <input type="file" id="file-input" accept="image/*" onchange="handleImage(event)">
+    </div>
+
+    <div id="result-card">
+        <div id="label-name" class="label-text">判定結果</div>
+        <div id="instruction-text">---</div>
+        <div id="probability" class="prob-text"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+<script type="text/javascript">
+    const URL = "https://teachablemachine.withgoogle.com/models/2w7Qu1Ejv/"; // ここを自分のものに変更
+
+    let model, webcam, maxPredictions;
+    const labelName = document.getElementById("label-name");
+    const instrText = document.getElementById("instruction-text");
+    const probDisplay = document.getElementById("probability");
+    const displayArea = document.getElementById("display-area");
+
+    // モデルの読み込み
+    async function loadModel() {
+        if (!model) {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+        }
+    }
+
+    // --- カメラ機能 ---
+    async function initCamera() {
+        await loadModel();
+        displayArea.innerHTML = ""; // プレースホルダーを消去
+        webcam = new tmImage.Webcam(400, 400, true); 
+        await webcam.setup();
+        await webcam.play();
+        displayArea.appendChild(webcam.canvas);
+        window.requestAnimationFrame(cameraLoop);
+    }
+
+    async function cameraLoop() {
+        webcam.update();
+        await predict(webcam.canvas);
+        window.requestAnimationFrame(cameraLoop);
+    }
+
+    // --- 画像アップロード機能 ---
+    async function handleImage(event) {
+        await loadModel();
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const img = document.createElement("img");
+        img.src = window.URL.createObjectURL(file);
+        img.onload = async () => {
+            displayArea.innerHTML = "";
+            displayArea.appendChild(img);
+            await predict(img); // 画像が読み込まれたら判定
+        };
+    }
+
+    // --- 共通判定ロジック ---
+    async function predict(inputElement) {
+        const prediction = await model.predict(inputElement);
+        
+        let highestProb = 0;
+        let bestMatch = "";
+        for (let i = 0; i < maxPredictions; i++) {
+            if (prediction[i].probability > highestProb) {
+                highestProb = prediction[i].probability;
+                bestMatch = prediction[i].className;
+            }
+        }
+
+        if (highestProb > 0.5) {
+            labelName.innerText = bestMatch;
+            probDisplay.innerText = "信頼度: " + (highestProb * 100).toFixed(1) + "%";
+            updateInstruction(bestMatch);
+        }
+    }
+
+    function updateInstruction(match) {
+        const instructions = {
+            "ペットボトル": "ラベルとキャップを外して洗浄してください。",
+            "缶": "中を洗って乾燥させてください。",
+            "瓶": "キャップを取り、中を洗って色別に分別してください。",
+            "その他": "地域のゴミ出しルールを確認してください。"
+        };
+        instrText.innerText = instructions[match] || "---";
+        
+        // 色分け
+        const colors = { "ペットボトル": "#007bff", "缶": "#28a745", "瓶": "#ffc107", "その他": "#6c757d" };
+        document.getElementById("result-card").style.borderLeftColor = colors[match] || "#ccc";
+    }
+</script>
+</body>
+</html>
