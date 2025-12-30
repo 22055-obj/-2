@@ -121,11 +121,30 @@
             "瓶": "キャップを取り、中を洗って色別に分別してください。",
             "その他": "地域のゴミ出しルールを確認してください。"
         };
+    
+        const collectionDays = {
+            "瓶": "第3水曜日",
+            "缶": "第2・第4水曜日",
+            "ペットボトル": "第1水曜日"
+        };
+    
+        // 分別方法
         instrText.innerText = instructions[match] || "---";
-        
+    
+        // 収集日表示
+        if (collectionDays[match]) {
+            probDisplay.innerText += ` ／ 収集日：${collectionDays[match]}`;
+        }
+    
         // 色分け
-        const colors = { "ペットボトル": "#007bff", "缶": "#28a745", "瓶": "#ffc107", "その他": "#6c757d" };
-        document.getElementById("result-card").style.borderLeftColor = colors[match] || "#ccc";
+        const colors = {
+            "ペットボトル": "#007bff",
+            "缶": "#28a745",
+            "瓶": "#ffc107",
+            "その他": "#6c757d"
+        };
+        document.getElementById("result-card").style.borderLeftColor =
+            colors[match] || "#ccc";
     }
 </script>
 </body>
