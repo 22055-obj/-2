@@ -3,19 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ごみ分別AI：カメラ＆写真</title>
+    <title>ごみ分別AI：コンパクト版</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        #display-area { margin-top: 20px; width: 100%; min-height: 200px; background: #eee; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        canvas, img { max-width: 100%; height: auto; }
-        .controls { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
-        button, label { padding: 12px; font-size: 1rem; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 10px; transition: 0.3s; }
-        button:hover, label:hover { background: #0056b3; }
-        #file-input { display: none; } /* 本来のファイル選択ボタンは隠す */
-        #result-card { margin-top: 20px; padding: 15px; border-radius: 10px; border-left: 8px solid #ccc; background: #fafafa; }
-        .label-text { font-size: 1.4rem; font-weight: bold; }
-        .prob-text { font-size: 0.9rem; color: #888; }
+        body { font-family: sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 10px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        h1 { font-size: 1.2rem; margin: 0 0 10px 0; }
+
+        /* 画像と結果を横に並べるための設定 */
+        .main-layout {
+            display: flex;
+            flex-wrap: wrap; /* 画面が狭いときは折り返す */
+            gap: 15px;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        /* 表示エリア：高さを150pxに固定 */
+        #display-area { 
+            flex: 0 0 auto;
+            width: 200px; /* 横幅を制限 */
+            height: 150px; 
+            background: #eee; 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden; 
+        }
+
+        canvas, img { 
+            height: 150px !important; 
+            width: auto !important; 
+            object-fit: contain; 
+        }
+
+        /* 結果カード：画像と並ぶように調整 */
+        #result-card { 
+            flex: 1; /* 余ったスペースを埋める */
+            min-width: 200px;
+            padding: 10px; 
+            border-radius: 10px; 
+            border-left: 8px solid #ccc; 
+            background: #fafafa; 
+            text-align: left;
+            box-sizing: border-box;
+        }
+
+        .label-text { font-size: 1.2rem; font-weight: bold; margin-bottom: 5px; }
+        #instruction-text { font-size: 0.9rem; line-height: 1.4; margin-bottom: 5px; }
+        .prob-text { font-size: 0.8rem; color: #888; }
+
+        .controls { 
+            margin-top: 15px; 
+            display: flex; 
+            flex-direction: row; /* ボタンを横並びに */
+            gap: 10px; 
+            justify-content: center;
+        }
+        
+        button, label { 
+            flex: 1;
+            padding: 10px 5px; 
+            font-size: 0.85rem; 
+            cursor: pointer; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            display: inline-block;
+        }
+        #file-input { display: none; }
     </style>
 </head>
 <body>
@@ -23,20 +81,22 @@
 <div class="container">
     <h1>ごみ分別AIカメラ</h1>
     
-    <div id="display-area">
-        <p id="placeholder">カメラを起動するか<br>画像を選択してください</p>
+    <div class="main-layout">
+        <div id="display-area">
+            <p id="placeholder" style="font-size: 0.8rem;">画像待ち</p>
+        </div>
+
+        <div id="result-card">
+            <div id="label-name" class="label-text">判定結果</div>
+            <div id="instruction-text">カメラを起動するか写真を選んでください。</div>
+            <div id="probability" class="prob-text"></div>
+        </div>
     </div>
 
     <div class="controls">
-        <button type="button" onclick="initCamera()">📸 カメラを起動</button>
-        <label for="file-input">📁 画像を選択（スマホ内から）</label>
+        <button type="button" onclick="initCamera()">📸 カメラ起動</button>
+        <label for="file-input">📁 画像選択</label>
         <input type="file" id="file-input" accept="image/*" onchange="handleImage(event)">
-    </div>
-
-    <div id="result-card">
-        <div id="label-name" class="label-text">判定結果</div>
-        <div id="instruction-text">---</div>
-        <div id="probability" class="prob-text"></div>
     </div>
 </div>
 
@@ -44,7 +104,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
 <script type="text/javascript">
-    const URL = "https://teachablemachine.withgoogle.com/models/2w7Qu1Ejv/"; // ここを自分のものに変更
+    const URL = "https://teachablemachine.withgoogle.com/models/2w7Qu1Ejv/"; 
 
     let model, webcam, maxPredictions;
     const labelName = document.getElementById("label-name");
@@ -52,7 +112,6 @@
     const probDisplay = document.getElementById("probability");
     const displayArea = document.getElementById("display-area");
 
-    // モデルの読み込み
     async function loadModel() {
         if (!model) {
             const modelURL = URL + "model.json";
@@ -62,10 +121,9 @@
         }
     }
 
-    // --- カメラ機能 ---
     async function initCamera() {
         await loadModel();
-        displayArea.innerHTML = ""; // プレースホルダーを消去
+        displayArea.innerHTML = ""; 
         webcam = new tmImage.Webcam(400, 400, true); 
         await webcam.setup();
         await webcam.play();
@@ -79,7 +137,6 @@
         window.requestAnimationFrame(cameraLoop);
     }
 
-    // --- 画像アップロード機能 ---
     async function handleImage(event) {
         await loadModel();
         const file = event.target.files[0];
@@ -90,11 +147,10 @@
         img.onload = async () => {
             displayArea.innerHTML = "";
             displayArea.appendChild(img);
-            await predict(img); // 画像が読み込まれたら判定
+            await predict(img); 
         };
     }
 
-    // --- 共通判定ロジック ---
     async function predict(inputElement) {
         const prediction = await model.predict(inputElement);
         
@@ -118,33 +174,24 @@
         const instructions = {
             "ペットボトル": "ラベルとキャップを外して洗浄してください。",
             "缶": "中を洗って乾燥させてください。",
-            "ビン": "キャップを取り、中を洗って色別に分別してください。",
-            "その他": "地域のゴミ出しルールを確認してください。"
+            "ビン": "キャップを取り、中を洗って色別に分別。",
+            "その他": "地域のルールを確認してください。"
         };
-    
         const collectionDays = {
-            "ビン": "第3水曜日",
-            "缶": "第2・第4水曜日",
-            "ペットボトル": "第1水曜日"
+            "ビン": "第3水曜",
+            "缶": "第2・4水曜",
+            "ペットボトル": "第1水曜"
         };
     
-        // 分別方法
         instrText.innerText = instructions[match] || "---";
-    
-        // 収集日表示
         if (collectionDays[match]) {
             probDisplay.innerText += ` ／ 収集日：${collectionDays[match]}`;
         }
     
-        // 色分け
         const colors = {
-            "ペットボトル": "#007bff",
-            "缶": "#28a745",
-            "ビン": "#ffc107",
-            "その他": "#6c757d"
+            "ペットボトル": "#007bff", "缶": "#28a745", "ビン": "#ffc107", "その他": "#6c757d"
         };
-        document.getElementById("result-card").style.borderLeftColor =
-            colors[match] || "#ccc";
+        document.getElementById("result-card").style.borderLeftColor = colors[match] || "#ccc";
     }
 </script>
 </body>
